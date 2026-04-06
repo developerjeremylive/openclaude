@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, MessageSquare, Trash2, User } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, User, FileText } from 'lucide-react';
 
 const SidebarContainer = styled.div`
   width: 300px;
@@ -97,16 +97,26 @@ export const ChatSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { chatId } = useParams();
   const [chats, setChats] = useState<any[]>([]);
+  const chatListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchChats();
   }, [user]);
 
+  useEffect(() => {
+    if (chatId && chatListRef.current) {
+      const activeItem = chatListRef.current.querySelector('[data-active="true"]');
+      if (activeItem) {
+        activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [chatId, chats]);
+
   const fetchChats = async () => {
     if (!user) return;
     const { data, error } = await supabase
       .from('livechats')
-      .select('*')
+      .select('*, livemessages(count)')
       .order('updated_at', { ascending: false });
 
     if (!error && data) setChats(data);
@@ -142,22 +152,26 @@ export const ChatSidebar: React.FC = () => {
         Nuevo Chat
       </NewChatButton>
 
-      <ChatList>
-        {chats.map(chat => (
-          <ChatItem
-            key={chat.id}
-            active={chatId === chat.id}
-            onClick={() => navigate(`/chat/${chat.id}`)}
-          >
-            <ChatInfo>
-              <MessageSquare size={16} />
-              <ChatTitle>{chat.title}</ChatTitle>
-            </ChatInfo>
-            <DeleteButton onClick={(e) => deleteChat(e, chat.id)}>
-              <Trash2 size={14} />
-            </DeleteButton>
-          </ChatItem>
-        ))}
+      <ChatList ref={chatListRef}>
+        {chats.map(chat => {
+          const isEmpty = chat.livemessages?.[0]?.count === 0;
+          return (
+            <ChatItem
+              key={chat.id}
+              active={chatId === chat.id}
+              data-active={chatId === chat.id}
+              onClick={() => navigate(`/chat/${chat.id}`)}
+            >
+              <ChatInfo>
+                {isEmpty ? <FileText size={16} /> : <MessageSquare size={16} />}
+                <ChatTitle>{chat.title}</ChatTitle>
+              </ChatInfo>
+              <DeleteButton onClick={(e) => deleteChat(e, chat.id)}>
+                <Trash2 size={14} />
+              </DeleteButton>
+            </ChatItem>
+          );
+        })}
       </ChatList>
 
       {user && (

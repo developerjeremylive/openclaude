@@ -40,6 +40,22 @@ const Header = styled.header`
   background: var(--bg-primary);
 `;
 
+const EmptyChatView = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--text-secondary);
+  gap: 1rem;
+`;
+
+const EmptyChatIcon = styled.div`
+  font-size: 3rem;
+  opacity: 0.5;
+`;
+
 const TypingIndicator = styled.div`
   display: flex;
   align-items: center;
@@ -101,7 +117,11 @@ export const ChatPage: React.FC = () => {
       setCurrentChatId(chatId);
       fetchMessages();
     } else {
-      createNewChat();
+      // Redirect to /chat to trigger a new chat creation or default behavior
+      // For now, we'll just keep it simple and let the Sidebar handle "New Chat"
+      // If the user lands here without an ID, we can just stay in an empty state
+      // or redirect to a fresh chat creation.
+      setCurrentChatId(null);
     }
   }, [user, chatId, navigate]);
 
@@ -131,29 +151,6 @@ export const ChatPage: React.FC = () => {
     if (!error && data) {
       setMessages(data);
     }
-  };
-
-  const createNewChat = async () => {
-    if (!user) return;
-    
-    const { data, error } = await supabase
-      .from('livechats')
-      .insert({
-        user_id: user.id,
-        title: 'Nuevo Chat'
-      })
-      .select()
-      .single();
-
-    if (error) {
-      toast.error('Error al crear nuevo chat');
-      return;
-    }
-
-    // Update the URL and state without triggering a full navigation
-    window.history.pushState({}, '', `/chat/${data.id}`);
-    // Force a re-render by setting a dummy state
-    setCurrentChatId(data.id);
   };
 
   const scrollToBottom = () => {
@@ -261,9 +258,16 @@ export const ChatPage: React.FC = () => {
           <ChatTitle>OpenClaude Chat</ChatTitle>
         </Header>
         <MessagesContainer>
-          {messages.map((msg, idx) => (
-            <ChatMessage key={idx} role={msg.role} content={msg.content} />
-          ))}
+          {messages.length === 0 && !isLoading ? (
+            <EmptyChatView>
+              <EmptyChatIcon>💬</EmptyChatIcon>
+              <p>Este chat está vacío. ¡Envía un mensaje para comenzar!</p>
+            </EmptyChatView>
+          ) : (
+            messages.map((msg, idx) => (
+              <ChatMessage key={idx} role={msg.role} content={msg.content} />
+            ))
+          )}
           {isLoading && (
             <TypingIndicator>
               <span>OpenClaude está pensando</span>
