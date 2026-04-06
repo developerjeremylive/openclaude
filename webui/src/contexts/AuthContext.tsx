@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../utils/supabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -22,23 +24,29 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const session = supabase.auth.session();
-    setUser(session?.user ?? null);
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
+    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string): Promise<boolean> ={
+  const signIn = async (email: string, password: string): Promise<boolean> => {
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -56,7 +64,7 @@ export const AuthProvider: React.FC = ({ children }) => {
     }
   };
 
-  const signUp = async (email: string, password: string): Promise<boolean> ={
+  const signUp = async (email: string, password: string): Promise<boolean> => {
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -74,7 +82,7 @@ export const AuthProvider: React.FC = ({ children }) => {
     }
   };
 
-  const signOut = async (): Promise<void> ={
+  const signOut = async (): Promise<void> => {
     try {
       await supabase.auth.signOut();
     } catch (error) {
@@ -86,6 +94,7 @@ export const AuthProvider: React.FC = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        session,
         signIn,
         signUp,
         signOut,

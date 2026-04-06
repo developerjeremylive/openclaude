@@ -1,8 +1,10 @@
-import { createClient } from '@supabase/supabase-js'';
+import { createClient } from '@supabase/supabase-js';
+
+import { environment } from '../environments/environment';
 
 export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_KEY,
+  environment.supabaseUrl,
+  environment.supabaseKey,
   {
     auth: {
       localStorage: window.localStorage,
@@ -22,7 +24,7 @@ export const openClaudeMessagesByChat = (chatId: string) => {
     .order('created_at', { ascending: false });
 };
 
-export const openClaudeMessagesInsert = async (data: {
+export const openClaudeMessagesInsert = async (messageData: {
   chat_id: string;
   user_id: string;
   role: 'user' | 'assistant';
@@ -32,7 +34,7 @@ export const openClaudeMessagesInsert = async (data: {
 }) => {
   const { data, error } = await supabase
     .from('livemessages')
-    .insert(data)
+    .insert(messageData)
     .select();
 
   if (error) {
