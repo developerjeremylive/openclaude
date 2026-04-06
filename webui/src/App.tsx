@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { ChatPage } from './pages/ChatPage';
+import { DocsPage } from './pages/DocsPage';
 import { useAuth } from './contexts/AuthContext';
 import styled from 'styled-components';
 
@@ -27,6 +28,7 @@ export const App: React.FC = () => {
     <AppContainer>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/docs" element={<DocsPage />} />
         <Route path="/auth" element={!user ? <AuthPage /> : <Navigate to="/chat" />} />
         <Route path="/chat" element={user ? <ChatPage /> : <Navigate to="/auth" />} />
         <Route path="/chat/:chatId" element={user ? <ChatPage /> : <Navigate to="/auth" />} />

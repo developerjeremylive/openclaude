@@ -374,7 +374,7 @@ export const LandingPage: React.FC = () => {
           <NavLink href="https://github.com/Gitlawb/openclaude" target="_blank" rel="noopener noreferrer">
             GitHub
           </NavLink>
-          <NavLink onClick={() => alert('Próximamente: Documentación completa')}>
+          <NavLink onClick={() => navigate('/docs')}>
             Docs
           </NavLink>
         </NavLinks>
