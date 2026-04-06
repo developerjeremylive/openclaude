@@ -88,6 +88,8 @@ export const ChatPage: React.FC = () => {
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionInitialized = useRef(false);
+  const messagesRef = useRef<Message[]>([]);
+  const hasSavedResponse = useRef(false);
 
   useEffect(() => {
     if (!user) {
@@ -112,6 +114,10 @@ export const ChatPage: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
   }, [messages]);
 
   const fetchMessages = async () => {
@@ -186,27 +192,27 @@ export const ChatPage: React.FC = () => {
 
     socketRef.current.on('cli-closed', async () => {
       setIsLoading(false);
-      // Save the final assistant response to Supabase
-      setMessages(prev => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.role === 'assistant') {
-          // Async save to Supabase
-          openClaudeMessagesInsert({
-            chat_id: currentChatId!,
-            user_id: user!.id,
-            role: 'assistant',
-            content: lastMsg.content,
-            metadata: {}
-          }).catch(err => console.error('Failed to save assistant response:', err));
-        }
-        return prev;
-      });
+      if (hasSavedResponse.current) return;
+
+      const lastMsg = messagesRef.current[messagesRef.current.length - 1];
+      if (lastMsg && lastMsg.role === 'assistant') {
+        hasSavedResponse.current = true;
+        // Async save to Supabase
+        openClaudeMessagesInsert({
+          chat_id: currentChatId!,
+          user_id: user!.id,
+          role: 'assistant',
+          content: lastMsg.content,
+          metadata: {}
+        }).catch(err => console.error('Failed to save assistant response:', err));
+      }
     });
   };
 
   const handleSendMessage = async (text: string) => {
     if (!currentChatId || currentChatId === 'new' || !user) return;
     setIsLoading(true);
+    hasSavedResponse.current = false;
 
     // Save user message to Supabase
     const savedMsg = await openClaudeMessagesInsert({
