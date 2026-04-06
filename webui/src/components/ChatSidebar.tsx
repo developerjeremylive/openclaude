@@ -150,10 +150,34 @@ export const ChatSidebar: React.FC = () => {
   const deleteChat = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!user) return;
-    const { error } = await supabase.from('chats').delete().eq('id', id);
-    if (!error) {
-      setChats(chats.filter(c => c.id !== id));
-      if (chatId === id) navigate('/chat');
+
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este chat y todos sus mensajes?')) {
+      return;
+    }
+
+    try {
+      // 1. Eliminar los mensajes primero para evitar restricciones de llave foránea
+      await supabase.from('livemessages').delete().eq('chat_id', id);
+
+      // 2. Eliminar el chat
+      const { error } = await supabase.from('livechats').delete().eq('id', id);
+
+      if (error) throw error;
+
+      const updatedChats = chats.filter(c => c.id !== id);
+      setChats(updatedChats);
+
+      if (chatId === id) {
+        if (updatedChats.length > 0) {
+          // Navegar al chat más reciente
+          navigate(`/chat/${updatedChats[0].id}`);
+        } else {
+          navigate('/chat');
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting chat:', err);
+      alert('Hubo un error al intentar eliminar el chat.');
     }
   };
 
