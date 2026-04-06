@@ -226,12 +226,101 @@ const FeatureCard = styled.div`
   border: 1px solid var(--border);
 `;
 
-const Recommendation = styled.div`
-  margin-top: 6rem;
-  padding: 3rem;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 1.5rem;
+const Section = styled.section`
+  padding: 6rem 0;
+  text-align: center;
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+`;
+
+const SectionSubtitle = styled.p`
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-bottom: 4rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+`;
+
+const InfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+  text-align: left;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+`;
+
+const InfoText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+`;
+
+const InfoParagraph = styled.p`
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+`;
+
+const WorkflowContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 3rem;
+  flex-wrap: wrap;
+`;
+
+const WorkflowStep = styled.div`
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: 2rem;
+  border-radius: 1rem;
+  width: 200px;
+  text-align: center;
+  position: relative;
+`;
+
+const StepNumber = styled.div`
+  background: var(--accent);
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  margin: 0 auto 1rem;
+`;
+
+const OpenSourceBox = styled.div`
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
   border: 1px solid var(--accent);
+  padding: 3rem;
+  border-radius: 2rem;
+  text-align: center;
+  margin-top: 6rem;
+`;
+
+const Recommendation = styled.div`
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid var(--accent);
+  padding: 2.5rem;
+  border-radius: 1.5rem;
+  margin-top: 5rem;
+  text-align: left;
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.1);
 `;
 
 const Footer = styled.footer`
@@ -353,6 +442,102 @@ export const LandingPage: React.FC = () => {
             <p>Mantiene la capacidad de usar herramientas de bash, edición de archivos y agentes autónomos complejos.</p>
           </FeatureCard>
         </Features>
+
+        <Section>
+          <SectionTitle>¿Qué es OpenClaude?</SectionTitle>
+          <SectionSubtitle>
+            OpenClaude es la implementación de código abierto de un sistema de codificación agentico.
+            A diferencia de los chatbots tradicionales, OpenClaude no solo sugiere código, sino que actúa
+            como un ingeniero de software autónomo capaz de navegar por tu repositorio, ejecutar comandos,
+            analizar errores y aplicar correcciones de forma independiente.
+          </SectionSubtitle>
+        </Section>
+
+        <Section>
+          <SectionTitle>El Bucle Agentico</SectionTitle>
+          <SectionSubtitle>La magia de OpenClaude reside en su capacidad de iteración autónoma a través de un ciclo continuo de razonamiento y acción.</SectionSubtitle>
+          <WorkflowContainer>
+            <WorkflowStep>
+              <StepNumber>1</StepNumber>
+              <h4 style={{ marginBottom: '0.5rem' }}>Planificar</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Analiza el repositorio y diseña una estrategia de implementación paso a paso.</p>
+            </WorkflowStep>
+            <WorkflowStep>
+              <StepNumber>2</StepNumber>
+              <h4 style={{ marginBottom: '0.5rem' }}>Ejecutar</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Escribe código, crea archivos y ejecuta comandos de terminal en tiempo real.</p>
+            </WorkflowStep>
+            <WorkflowStep>
+              <StepNumber>3</StepNumber>
+              <h4 style={{ marginBottom: '0.5rem' }}>Verificar</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Ejecuta tests y analiza logs para asegurar que la solución es correcta.</p>
+            </WorkflowStep>
+            <WorkflowStep>
+              <StepNumber>4</StepNumber>
+              <h4 style={{ marginBottom: '0.5rem' }}>Refinar</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Corrige errores detectados y optimiza el resultado hasta alcanzar el objetivo.</p>
+            </WorkflowStep>
+          </WorkflowContainer>
+        </Section>
+
+        <Section>
+          <SectionTitle>Capacidades Clave</SectionTitle>
+          <SectionSubtitle>Diseñado para manejar la complejidad de proyectos reales de software.</SectionSubtitle>
+          <InfoGrid>
+            <InfoText>
+              <InfoParagraph>
+                <strong>Integración Profunda con Terminal:</strong> Acceso completo a bash para ejecutar builds, scripts de migración y herramientas de CLI.
+              </InfoParagraph>
+              <InfoParagraph>
+                <strong>Manipulación de Archivos:</strong> Capacidad de leer, escribir y editar archivos con precisión quirúrgica en cualquier parte del proyecto.
+              </InfoParagraph>
+              <InfoParagraph>
+                <strong>Contexto Global:</strong> Indexación inteligente del código para comprender relaciones entre módulos y dependencias complejas.
+              </InfoParagraph>
+            </InfoText>
+            <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '1rem', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)' }} />
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Análisis de dependencias...</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)' }} />
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Aplicando fix en src/core/engine.ts...</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)' }} />
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Verificando tests unitarios...</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: 0.5 }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)' }} />
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Esperando confirmación...</span>
+                </div>
+              </div>
+            </div>
+          </InfoGrid>
+        </Section>
+
+        <OpenSourceBox>
+          <SectionTitle style={{ marginBottom: '1rem' }}>La Ventaja Open Source</SectionTitle>
+          <SectionSubtitle style={{ marginBottom: '2rem' }}>
+            Toma el control total de tu flujo de trabajo de IA. Sin restricciones de proveedor, sin cajas negras.
+          </SectionSubtitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem', textAlign: 'left' }}>
+            <div style={{ padding: '1rem' }}>
+              <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem' }}>Soberanía de Datos</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Tus llaves de API y tus archivos permanecen bajo tu control.</p>
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem' }}>Flexibilidad de Modelos</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Cambia entre Claude, GPT, Llama o DeepSeek instantáneamente.</p>
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <h4 style={{ color: 'var(--accent)', marginBottom: '0.5rem' }}>Evolución Comunitaria</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Mejorado por desarrolladores, para desarrolladores.</p>
+            </div>
+          </div>
+        </OpenSourceBox>
 
         <Recommendation>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
