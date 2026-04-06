@@ -62,6 +62,32 @@ const NavLogo = styled.div`
   font-size: 1.25rem;
   cursor: pointer;
   color: var(--text-primary);
+  transition: opacity 0.2s;
+  &:hover {
+    opacity: 0.8;
+  }
+`;
+
+const NavLinks = styled.div`
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const NavLink = styled.a`
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: color 0.2s;
+  cursor: pointer;
+  &:hover {
+    color: var(--accent);
+  }
 `;
 
 const NavButton = styled(Button)`
@@ -208,6 +234,39 @@ const Recommendation = styled.div`
   border: 1px solid var(--accent);
 `;
 
+const Footer = styled.footer`
+  margin-top: 8rem;
+  padding: 4rem 2rem;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  text-align: center;
+`;
+
+const FooterContainer = styled.div`
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const FooterText = styled.p`
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+`;
+
+const FooterLink = styled.a`
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+  &:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+  }
+`;
+
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
 
@@ -219,6 +278,17 @@ export const LandingPage: React.FC = () => {
           <Terminal size={24} color="var(--accent)" />
           <span>OpenClaude</span>
         </NavLogo>
+        <NavLinks>
+          <NavLink onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
+            Características
+          </NavLink>
+          <NavLink href="https://github.com/Gitlawb/openclaude" target="_blank" rel="noopener noreferrer">
+            GitHub
+          </NavLink>
+          <NavLink onClick={() => alert('Próximamente: Documentación completa')}>
+            Docs
+          </NavLink>
+        </NavLinks>
         <NavButton onClick={() => navigate('/auth')}>
           Empezar Ahora
         </NavButton>
@@ -260,7 +330,7 @@ export const LandingPage: React.FC = () => {
           </HeroVisual>
         </HeroSection>
 
-        <Features>
+        <Features id="features">
           <FeatureCard>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
               <Shield color="var(--accent)" size={24} />
@@ -297,6 +367,17 @@ export const LandingPage: React.FC = () => {
           </p>
         </Recommendation>
       </Container>
+
+      <Footer>
+        <FooterContainer>
+          <FooterText>
+            © {new Date().getFullYear()} OpenClaude WebUI. Todos los derechos reservados.
+          </FooterText>
+          <FooterText>
+            Creado con ❤️ por <FooterLink href="https://jeremylive.netlify.app" target="_blank" rel="noopener noreferrer">Jeremy Live</FooterLink>
+          </FooterText>
+        </FooterContainer>
+      </Footer>
     </PageWrapper>
   );
 };
