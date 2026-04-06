@@ -378,7 +378,7 @@ export const DocsPage: React.FC = () => {
       <Sidebar>
         <SidebarLogo onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <Terminal size={24} />
-          <span>OpenClaude Docs</span>
+          <span>OpenClaude WebUI Docs</span>
         </SidebarLogo>
 
         <NavSection>
@@ -402,7 +402,7 @@ export const DocsPage: React.FC = () => {
         </ContentArea>
         <DocsFooter>
           <p>
-            © {new Date().getFullYear()} OpenClaude. Creado con ❤️ por{' '}
+            © {new Date().getFullYear()} OpenClaude WebUI. Creado con ❤️ por{' '}
             <FooterLink href="https://jeremylive.netlify.app" target="_blank" rel="noopener noreferrer">
               Jeremy Live
             </FooterLink>

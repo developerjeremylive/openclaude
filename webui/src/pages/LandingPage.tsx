@@ -365,7 +365,7 @@ export const LandingPage: React.FC = () => {
       <Nav>
         <NavLogo onClick={() => navigate('/')}>
           <Terminal size={24} color="var(--accent)" />
-          <span>OpenClaude</span>
+          <span>OpenClaude WebUI</span>
         </NavLogo>
         <NavLinks>
           <NavLink onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
