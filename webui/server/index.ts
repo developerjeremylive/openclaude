@@ -32,11 +32,54 @@ const supabase = createClient(
 
 const sessionConfigs = new Map<string, any>();
 
-const handleSendMessage = (socket: any, message: string) => {
+const handleSendMessage = async (socket: any, message: string) => {
   const config = sessionConfigs.get(socket.id);
   if (!config) {
     socket.emit('error', { text: 'No active session found.' });
     return;
+  }
+
+  // Interceptar shortcuts de sistema
+  if (message.startsWith('/')) {
+    const [cmd, ...args] = message.split(' ');
+    const arg = args.join(' ');
+
+    if (cmd === '/clear') {
+      try {
+        await supabase.from('livemessages').delete().eq('chat_id', config.chatId);
+        socket.emit('cli-output', { text: '\n✅ Historial de chat limpiado correctamente.' });
+        socket.emit('cli-closed', { code: 0 });
+        return;
+      } catch (err) {
+        socket.emit('cli-error', { text: `Error clearing chat: ${err}` });
+        socket.emit('cli-closed', { code: 1 });
+        return;
+      }
+    }
+
+    if (cmd === '/model') {
+      if (!arg) {
+        socket.emit('cli-output', { text: '\n❌ Por favor, especifica un modelo. Ejemplo: /model gemma-4-31b-it' });
+        socket.emit('cli-closed', { code: 1 });
+        return;
+      }
+      config.model = arg;
+      sessionConfigs.set(socket.id, config);
+      socket.emit('cli-output', { text: `\n✅ Modelo cambiado a: ${arg}` });
+      socket.emit('cli-closed', { code: 0 });
+      return;
+    }
+
+    if (cmd === '/provider') {
+      if (!arg) {
+        socket.emit('cli-output', { text: '\n❌ Por favor, especifica un proveedor. Ejemplo: /provider google' });
+        socket.emit('cli-closed', { code: 1 });
+        return;
+      }
+      socket.emit('cli-output', { text: `\n✅ Proveedor cambiado a: ${arg} (Simulado)` });
+      socket.emit('cli-closed', { code: 0 });
+      return;
+    }
   }
 
   console.log(`Processing message: ${message}`);

@@ -208,55 +208,71 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!currentChatId || currentChatId === 'new' || !user) return;
+    if (!text.trim() || !user) return;
+    if (isLoading) return;
+
     setIsLoading(true);
     hasSavedResponse.current = false;
 
-    // If this is the first message, update the chat title
-    if (messages.length === 0) {
-      const truncatedTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
-      await supabase
-        .from('livechats')
-        .update({ title: truncatedTitle })
-        .eq('id', currentChatId);
-    }
+    try {
+      let activeChatId = currentChatId;
 
-    // Save user message to Supabase
-    const savedMsg = await openClaudeMessagesInsert({
-      chat_id: currentChatId,
-      user_id: user.id,
-      role: 'user',
-      content: text,
-      metadata: {}
-    });
+      // Si es un chat nuevo, crearlo primero en Supabase
+      if (!activeChatId || activeChatId === 'new') {
+        const { data: newChat, error: chatError } = await supabase
+          .from('livechats')
+          .insert([{
+            title: text.length > 30 ? text.substring(0, 30) + '...' : text,
+            user_id: user.id
+          }])
+          .select()
+          .single();
 
-    if (savedMsg) {
-      setMessages(prev => [...prev, { ...savedMsg, role: 'user', content: text }]);
-    }
+        if (chatError) throw chatError;
+        activeChatId = newChat.id;
+        setCurrentChatId(activeChatId);
+      }
 
-    if (!socketRef.current) {
-      initSocket();
-    }
-
-    // If this is the first message of the session, use start-chat to initialize the bridge
-    // Otherwise, use send-message for better performance
-    const isFirstMessage = messages.length === 0;
-
-    if (isFirstMessage) {
-      socketRef.current?.emit('start-chat', {
-        chatId: currentChatId,
-        userId: user.id,
-        message: text,
-        providerConfig: {
-          apiKey: import.meta.env.VITE_API_KEY,
-          baseUrl: import.meta.env.VITE_BASE_URL,
-          model: import.meta.env.VITE_MODEL
-        }
+      // Guardar mensaje del usuario
+      const savedMsg = await openClaudeMessagesInsert({
+        chat_id: activeChatId,
+        user_id: user.id,
+        role: 'user',
+        content: text,
+        metadata: {}
       });
-    } else {
-      socketRef.current?.emit('send-message', {
-        message: text
-      });
+
+      if (savedMsg) {
+        setMessages(prev => [...prev, { ...savedMsg, role: 'user', content: text }]);
+      }
+
+      if (!socketRef.current) {
+        initSocket();
+      }
+
+      const isFirstMessage = messages.length === 0;
+
+      if (isFirstMessage) {
+        socketRef.current?.emit('start-chat', {
+          chatId: activeChatId,
+          userId: user.id,
+          message: text,
+          providerConfig: {
+            apiKey: import.meta.env.VITE_API_KEY,
+            baseUrl: import.meta.env.VITE_BASE_URL,
+            model: import.meta.env.VITE_MODEL
+          }
+        });
+      } else {
+        socketRef.current?.emit('send-message', {
+          chatId: activeChatId,
+          message: text
+        });
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Error al enviar el mensaje. Por favor, intenta de nuevo.');
+      setIsLoading(false);
     }
   };
 
