@@ -8,6 +8,7 @@ import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { supabase } from '../utils/supabaseClient';
 import { toast } from 'react-hot-toast';
+import { openClaudeMessagesInsert } from '../utils/supabaseClient';
 
 const PageContainer = styled.div`
   display: flex;
@@ -58,6 +59,7 @@ export const ChatPage: React.FC = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState(chatId);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -67,23 +69,31 @@ export const ChatPage: React.FC = () => {
       return;
     }
 
-    if (chatId) {
+    if (chatId && chatId !== 'new') {
+      setCurrentChatId(chatId);
       fetchMessages();
     } else {
-      navigate('/chat/new');
+      createNewChat();
     }
   }, [user, chatId, navigate]);
+
+  // Refetch messages when chatId changes
+  useEffect(() => {
+    if (currentChatId && currentChatId !== 'new') {
+      fetchMessages();
+    }
+  }, [currentChatId]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const fetchMessages = async () => {
-    if (!chatId) return;
+    if (!currentChatId) return;
     const { data, error } = await supabase
-      .from('messages')
+      .from('livemessages')
       .select('*')
-      .eq('chat_id', chatId)
+      .eq('chat_id', currentChatId)
       .order('created_at', { ascending: true });
 
     if (!error && data) {
@@ -91,12 +101,35 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const createNewChat = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('livechats')
+      .insert({
+        user_id: user.id,
+        title: 'Nuevo Chat'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error('Error al crear nuevo chat');
+      return;
+    }
+
+    // Update the URL and state without triggering a full navigation
+    window.history.pushState({}, '', `/chat/${data.id}`);
+    // Force a re-render by setting a dummy state
+    setCurrentChatId(data.id);
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const initSocket = () => {
-    socketRef.current = io('http://localhost:3001');
+    socketRef.current = io('http://localhost:4000');
 
     socketRef.current.on('cli-output', async ({ text }) => {
       // The CLI output can be streaming, so we might need to accumulate
@@ -121,20 +154,20 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!chatId || !user) return;
+    if (!currentChatId || currentChatId === 'new' || !user) return;
 
     // Save user message to Supabase
-    const { data: savedMsg } = await supabase
-      .from('messages')
-      .insert({
-        chat_id: chatId,
-        user_id: user.id,
-        role: 'user',
-        content: text
-      })
-      .select();
+    const savedMsg = await openClaudeMessagesInsert({
+      chat_id: currentChatId,
+      user_id: user.id,
+      role: 'user',
+      content: text,
+      metadata: {}
+    });
 
-    setMessages(prev => [...prev, { ...savedMsg?.[0], role: 'user', content: text }]);
+    if (savedMsg) {
+      setMessages(prev => [...prev, { ...savedMsg, role: 'user', content: text }]);
+    }
 
     if (!socketRef.current) {
       initSocket();
@@ -142,7 +175,7 @@ export const ChatPage: React.FC = () => {
 
     // Send to bridge server
     socketRef.current?.emit('start-chat', {
-      chatId,
+      chatId: currentChatId,
       userId: user.id,
       message: text,
       providerConfig: {
