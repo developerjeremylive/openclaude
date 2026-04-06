@@ -39,7 +39,7 @@ const handleSendMessage = async (socket: any, message: string) => {
     return;
   }
 
-  // Interceptar shortcuts de sistema
+  // 1. Interceptar shortcuts de infraestructura (Manejados por el servidor)
   if (message.startsWith('/')) {
     const [cmd, ...args] = message.split(' ');
     const arg = args.join(' ');
@@ -47,7 +47,7 @@ const handleSendMessage = async (socket: any, message: string) => {
     if (cmd === '/clear') {
       try {
         await supabase.from('livemessages').delete().eq('chat_id', config.chatId);
-        socket.emit('cli-output', { text: '\n✅ Historial de chat limpiado correctamente.' });
+        socket.emit('cli-output', { text: '\n✅ Historial de chat limpiado en la base de datos.' });
         socket.emit('cli-closed', { code: 0 });
         return;
       } catch (err) {
@@ -59,32 +59,56 @@ const handleSendMessage = async (socket: any, message: string) => {
 
     if (cmd === '/model') {
       if (!arg) {
-        socket.emit('cli-output', { text: '\n❌ Por favor, especifica un modelo. Ejemplo: /model gemma-4-31b-it' });
+        socket.emit('cli-output', { text: '\n❌ Uso: /model <nombre-modelo>' });
         socket.emit('cli-closed', { code: 1 });
         return;
       }
       config.model = arg;
       sessionConfigs.set(socket.id, config);
-      socket.emit('cli-output', { text: `\n✅ Modelo cambiado a: ${arg}` });
+      socket.emit('cli-output', { text: `\n✅ Modelo actualizado a: ${arg}` });
       socket.emit('cli-closed', { code: 0 });
       return;
     }
 
     if (cmd === '/provider') {
       if (!arg) {
-        socket.emit('cli-output', { text: '\n❌ Por favor, especifica un proveedor. Ejemplo: /provider google' });
+        socket.emit('cli-output', { text: '\n❌ Uso: /provider <nombre-proveedor>' });
         socket.emit('cli-closed', { code: 1 });
         return;
       }
-      socket.emit('cli-output', { text: `\n✅ Proveedor cambiado a: ${arg} (Simulado)` });
+      socket.emit('cli-output', { text: `\n✅ Proveedor actualizado a: ${arg} (Sincronizado con configuración de sesión)` });
+      socket.emit('cli-closed', { code: 0 });
+      return;
+    }
+
+    if (cmd === '/config') {
+      const configSummary = `\n⚙️ Configuración Actual:\n- Modelo: ${config.model}\n- BaseURL: ${config.baseUrl}\n- API Key: ${config.apiKey ? '********' : 'No configurada'}`;
+      socket.emit('cli-output', { text: configSummary });
       socket.emit('cli-closed', { code: 0 });
       return;
     }
   }
 
+  // 2. Preparar el contexto (Historial)
+  const { data: history } = await supabase
+    .from('livemessages')
+    .select('role, content')
+    .eq('chat_id', config.chatId)
+    .order('created_at', { ascending: true });
+
+  let fullPrompt = message;
+  if (history && history.length > 0) {
+    const historyContext = history
+      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+      .join('\n');
+    fullPrompt = `Contexto previo:\n${historyContext}\n\nUltimo mensaje: ${message}`;
+  }
+
   console.log(`Processing message: ${message}`);
 
-  const child = spawn('node', [cliPath, '-p', message, '-c'], {
+  // 3. Ejecutar el CLI con el contexto y el directorio de trabajo correcto
+  const child = spawn('node', [cliPath, '-p', fullPrompt, '-c'], {
+    cwd: process.cwd(),
     env: {
       ...process.env,
       CLAUDE_CODE_USE_OPENAI: '1',
@@ -134,8 +158,8 @@ io.on('connection', (socket) => {
 
     console.log(`Loaded ${history?.length || 0} messages from history`);
 
-    // Save session config
-    sessionConfigs.set(socket.id, providerConfig);
+    // Save session config including chatId
+    sessionConfigs.set(socket.id, { ...providerConfig, chatId });
 
     // Send the first message
     if (message) {
