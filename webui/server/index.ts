@@ -59,6 +59,8 @@ const handleSendMessage = (socket: any, message: string) => {
 
   child.stderr.on('data', (data) => {
     const text = data.toString();
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('interrupted by user') || lowerText.includes('no stdin data received')) return;
     console.error(`CLI STDERR: ${text}`);
     socket.emit('cli-error', { text });
   });

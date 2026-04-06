@@ -40,6 +40,31 @@ const Header = styled.header`
   background: var(--bg-primary);
 `;
 
+const TypingIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1rem 2rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+`;
+
+const Dot = styled.span`
+  width: 6px;
+  height: 6px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+
+  &:nth-child(1) { animation-delay: -0.32s; }
+  &:nth-child(2) { animation-delay: -0.16s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1.0); }
+  }
+`;
+
 const ChatTitle = styled.h2`
   font-size: 1.25rem;
   font-weight: 600;
@@ -62,6 +87,7 @@ export const ChatPage: React.FC = () => {
   const [currentChatId, setCurrentChatId] = useState(chatId);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sessionInitialized = useRef(false);
 
   useEffect(() => {
     if (!user) {
@@ -132,6 +158,7 @@ export const ChatPage: React.FC = () => {
     socketRef.current = io('http://localhost:4000');
 
     socketRef.current.on('cli-output', async ({ text }) => {
+      setIsLoading(false);
       // The CLI output can be streaming, so we might need to accumulate
       // For now, we treat each chunk as a part of the last assistant message
       setMessages(prev => {
@@ -149,12 +176,37 @@ export const ChatPage: React.FC = () => {
     });
 
     socketRef.current.on('cli-error', ({ text }) => {
-      toast.error(`CLI Error: ${text}`);
+      setIsLoading(false);
+      if (text.includes('[Request interrupted by user]') || text.includes('Warning: no stdin data received')) return;
+      // Only show toast if it looks like a critical error
+      if (text.toLowerCase().includes('error') || text.toLowerCase().includes('failed')) {
+        toast.error(`CLI Error: ${text}`);
+      }
+    });
+
+    socketRef.current.on('cli-closed', async () => {
+      setIsLoading(false);
+      // Save the final assistant response to Supabase
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant') {
+          // Async save to Supabase
+          openClaudeMessagesInsert({
+            chat_id: currentChatId!,
+            user_id: user!.id,
+            role: 'assistant',
+            content: lastMsg.content,
+            metadata: {}
+          }).catch(err => console.error('Failed to save assistant response:', err));
+        }
+        return prev;
+      });
     });
   };
 
   const handleSendMessage = async (text: string) => {
     if (!currentChatId || currentChatId === 'new' || !user) return;
+    setIsLoading(true);
 
     // Save user message to Supabase
     const savedMsg = await openClaudeMessagesInsert({
@@ -173,17 +225,26 @@ export const ChatPage: React.FC = () => {
       initSocket();
     }
 
-    // Send to bridge server
-    socketRef.current?.emit('start-chat', {
-      chatId: currentChatId,
-      userId: user.id,
-      message: text,
-      providerConfig: {
-        apiKey: 'YOUR_OPENROUTER_API_KEY', // This should come from user settings
-        baseUrl: 'https://openrouter.ai/api/v1',
-        model: 'anthropic/claude-3.5-sonnet'
-      }
-    });
+    // If this is the first message of the session, use start-chat to initialize the bridge
+    // Otherwise, use send-message for better performance
+    const isFirstMessage = messages.length === 0;
+
+    if (isFirstMessage) {
+      socketRef.current?.emit('start-chat', {
+        chatId: currentChatId,
+        userId: user.id,
+        message: text,
+        providerConfig: {
+          apiKey: import.meta.env.VITE_API_KEY,
+          baseUrl: import.meta.env.VITE_BASE_URL,
+          model: import.meta.env.VITE_MODEL
+        }
+      });
+    } else {
+      socketRef.current?.emit('send-message', {
+        message: text
+      });
+    }
   };
 
   return (
@@ -197,6 +258,14 @@ export const ChatPage: React.FC = () => {
           {messages.map((msg, idx) => (
             <ChatMessage key={idx} role={msg.role} content={msg.content} />
           ))}
+          {isLoading && (
+            <TypingIndicator>
+              <span>OpenClaude está pensando</span>
+              <Dot />
+              <Dot />
+              <Dot />
+            </TypingIndicator>
+          )}
           <div ref={messagesEndRef} />
         </MessagesContainer>
         <ChatInput onSend={handleSendMessage} disabled={isLoading} />
