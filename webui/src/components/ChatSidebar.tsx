@@ -68,6 +68,18 @@ const ChatTitle = styled.span`
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.9rem;
+  flex: 1;
+`;
+
+const MessageCountLabel = styled.span<{ $count: number }>`
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: ${props => props.$count === 0 ? 'var(--border)' : 'var(--accent)'};
+  color: ${props => props.$count === 0 ? 'var(--text-secondary)' : 'white'};
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
 `;
 
 const DeleteButton = styled.button`
@@ -154,7 +166,8 @@ export const ChatSidebar: React.FC = () => {
 
       <ChatList ref={chatListRef}>
         {chats.map(chat => {
-          const isEmpty = chat.livemessages?.[0]?.count === 0;
+          const messageCount = chat.livemessages?.[0]?.count || 0;
+          const isEmpty = messageCount === 0;
           return (
             <ChatItem
               key={chat.id}
@@ -165,6 +178,9 @@ export const ChatSidebar: React.FC = () => {
               <ChatInfo>
                 {isEmpty ? <FileText size={16} /> : <MessageSquare size={16} />}
                 <ChatTitle>{chat.title}</ChatTitle>
+                <MessageCountLabel $count={messageCount}>
+                  {messageCount}
+                </MessageCountLabel>
               </ChatInfo>
               <DeleteButton onClick={(e) => deleteChat(e, chat.id)}>
                 <Trash2 size={14} />

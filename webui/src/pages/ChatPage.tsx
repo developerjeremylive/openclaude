@@ -211,6 +211,15 @@ export const ChatPage: React.FC = () => {
     setIsLoading(true);
     hasSavedResponse.current = false;
 
+    // If this is the first message, update the chat title
+    if (messages.length === 0) {
+      const truncatedTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
+      await supabase
+        .from('livechats')
+        .update({ title: truncatedTitle })
+        .eq('id', currentChatId);
+    }
+
     // Save user message to Supabase
     const savedMsg = await openClaudeMessagesInsert({
       chat_id: currentChatId,
