@@ -115,7 +115,7 @@ export const ChatPage: React.FC = () => {
 
     if (chatId && chatId !== 'new') {
       setCurrentChatId(chatId);
-      fetchMessages();
+      fetchMessages(chatId);
     } else {
       // Redirect to /chat to trigger a new chat creation or default behavior
       // For now, we'll just keep it simple and let the Sidebar handle "New Chat"
@@ -140,12 +140,13 @@ export const ChatPage: React.FC = () => {
     messagesRef.current = messages;
   }, [messages]);
 
-  const fetchMessages = async () => {
-    if (!currentChatId) return;
+  const fetchMessages = async (id?: string) => {
+    const targetChatId = id || currentChatId;
+    if (!targetChatId) return;
     const { data, error } = await supabase
       .from('livemessages')
       .select('*')
-      .eq('chat_id', currentChatId)
+      .eq('chat_id', targetChatId)
       .order('created_at', { ascending: true });
 
     if (!error && data) {
