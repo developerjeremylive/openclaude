@@ -51,7 +51,7 @@ const NavSectionTitle = styled.h4`
   font-weight: 600;
 `;
 
-const NavItem = styled.div<{ active: boolean }>`
+const NavItem = styled.div<{ $active: boolean }>`
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -59,8 +59,8 @@ const NavItem = styled.div<{ active: boolean }>`
   border-radius: 0.5rem;
   cursor: pointer;
   font-size: 0.95rem;
-  color: ${props => props.active ? 'var(--text-primary)' : 'var(--text-secondary)'};
-  background: ${props => props.active ? 'rgba(59, 130, 246, 0.1)' : 'transparent'};
+  color: ${props => props.$active ? 'var(--text-primary)' : 'var(--text-secondary)'};
+  background: ${props => props.$active ? 'rgba(59, 130, 246, 0.1)' : 'transparent'};
   transition: all 0.2s ease;
   margin-bottom: 0.25rem;
 
@@ -386,7 +386,7 @@ export const DocsPage: React.FC = () => {
           {sections.map(s => (
             <NavItem
               key={s.id}
-              active={activeSection === s.id}
+              $active={activeSection === s.id}
               onClick={() => setActiveSection(s.id)}
             >
               {s.icon}
