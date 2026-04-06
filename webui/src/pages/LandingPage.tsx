@@ -2,34 +2,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { Terminal, Shield, Database, Zap, Cpu, ArrowRight } from 'lucide-react';
+import { ThreeBackground } from '../components/ThreeBackground';
 
 const PageWrapper = styled.div`
   position: relative;
   min-height: 100vh;
   overflow: hidden;
   background: var(--bg-primary);
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: -10%;
-    right: -10%;
-    width: 40%;
-    height: 40%;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -10%;
-    left: -10%;
-    width: 40%;
-    height: 40%;
-    background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
-    pointer-events: none;
-  }
 `;
 
 const Container = styled.div`
@@ -234,6 +213,7 @@ export const LandingPage: React.FC = () => {
 
   return (
     <PageWrapper>
+      <ThreeBackground />
       <Nav>
         <NavLogo onClick={() => navigate('/')}>
           <Terminal size={24} color="var(--accent)" />
