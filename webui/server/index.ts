@@ -5,6 +5,12 @@ import { spawn } from 'child_process';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const cliPath = path.resolve(__dirname, '..', '..', 'dist', 'cli.mjs');
 
 dotenv.config();
 
@@ -24,12 +30,56 @@ const supabase = createClient(
   process.env.SUPABASE_KEY || ''
 );
 
-const activeProcesses = new Map<string, any>();
+const sessionConfigs = new Map<string, any>();
+
+const handleSendMessage = (socket: any, message: string) => {
+  const config = sessionConfigs.get(socket.id);
+  if (!config) {
+    socket.emit('error', { text: 'No active session found.' });
+    return;
+  }
+
+  console.log(`Processing message: ${message}`);
+
+  const child = spawn('node', [cliPath, '-p', message, '-c'], {
+    env: {
+      ...process.env,
+      CLAUDE_CODE_USE_OPENAI: '1',
+      OPENAI_API_KEY: config.apiKey,
+      OPENAI_BASE_URL: config.baseUrl,
+      OPENAI_MODEL: config.model,
+    }
+  });
+
+  child.stdout.on('data', (data) => {
+    const text = data.toString();
+    console.log(`CLI STDOUT: ${text}`);
+    socket.emit('cli-output', { text });
+  });
+
+  child.stderr.on('data', (data) => {
+    const text = data.toString();
+    console.error(`CLI STDERR: ${text}`);
+    socket.emit('cli-error', { text });
+  });
+
+  child.on('error', (err) => {
+    console.error('CLI process error:', err);
+    socket.emit('cli-error', { text: `CLI Error: ${err.message}` });
+  });
+
+  child.on('close', (code) => {
+    console.log(`CLI process exited with code ${code}`);
+    socket.emit('cli-closed', { code });
+  });
+};
+
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('start-chat', async ({ chatId, userId, message, providerConfig }) => {
+    console.log(`Starting chat for user ${userId}, chat ${chatId}`);
     // Load history from Supabase
     const { data: history } = await supabase
       .from('livemessages')
@@ -37,52 +87,23 @@ io.on('connection', (socket) => {
       .eq('chat_id', chatId)
       .order('created_at', { ascending: true });
 
-    // Spawn OpenClaude CLI
-    // In a real scenario, we'd pass history as context to the CLI
-    const child = spawn('openclaude', ['--non-interactive'], {
-      env: {
-        ...process.env,
-        CLAUDE_CODE_USE_OPENAI: '1',
-        OPENAI_API_KEY: providerConfig.apiKey,
-        OPENAI_BASE_URL: providerConfig.baseUrl,
-        OPENAI_MODEL: providerConfig.model,
-      }
-    });
+    console.log(`Loaded ${history?.length || 0} messages from history`);
 
-    activeProcesses.set(socket.id, child);
+    // Save session config
+    sessionConfigs.set(socket.id, providerConfig);
 
-    child.stdout.on('data', (data) => {
-      socket.emit('cli-output', { text: data.toString() });
-    });
-
-    child.stderr.on('data', (data) => {
-      socket.emit('cli-error', { text: data.toString() });
-    });
-
-    child.on('close', (code) => {
-      socket.emit('cli-closed', { code });
-      activeProcesses.delete(socket.id);
-    });
-
-    // Send the first message to the CLI
-    child.stdin.write(`${message}\n`);
+    // Send the first message
+    if (message) {
+      handleSendMessage(socket, message);
+    }
   });
 
   socket.on('send-message', ({ message }) => {
-    const child = activeProcesses.get(socket.id);
-    if (child) {
-      child.stdin.write(`${message}\n`);
-    } else {
-      socket.emit('error', { text: 'No active session found.' });
-    }
+    handleSendMessage(socket, message);
   });
 
   socket.on('disconnect', () => {
-    const child = activeProcesses.get(socket.id);
-    if (child) {
-      child.kill();
-      activeProcesses.delete(socket.id);
-    }
+    sessionConfigs.delete(socket.id);
     console.log('User disconnected:', socket.id);
   });
 });
