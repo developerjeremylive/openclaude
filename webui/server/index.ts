@@ -26,8 +26,8 @@ const io = new Server(server, {
 });
 
 const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_KEY || ''
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+  process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_KEY || ''
 );
 
 const sessionConfigs = new Map<string, any>();
@@ -46,11 +46,35 @@ const handleSendMessage = async (socket: any, message: string) => {
 
     if (cmd === '/clear') {
       try {
-        await supabase.from('livemessages').delete().eq('chat_id', config.chatId);
-        socket.emit('cli-output', { text: '\n✅ Historial de chat limpiado en la base de datos.' });
+        // Diagnóstico: Verificar si la clave API está cargada
+        const apiKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_KEY || '';
+        console.log(`[Debug] API Key loaded: ${apiKey ? apiKey.substring(0, 8) + '...' : 'NOT LOADED'}`);
+        console.log(`[Debug] Clearing chat: ${config.chatId} for user: ${config.userId}`);
+
+        // 1. Verificar cuántos mensajes existen realmente para este chat
+        const { count } = await supabase
+          .from('livemessages')
+          .select('*', { count: 'exact', head: true })
+          .eq('chat_id', config.chatId);
+
+        console.log(`[Debug] Total messages found for chat ${config.chatId}: ${count}`);
+
+        // 2. Intentar borrar SOLO por chat_id (ya que service_role ignora RLS)
+        const { data, error: deleteError } = await supabase
+          .from('livemessages')
+          .delete()
+          .eq('chat_id', config.chatId)
+          .select();
+
+        if (deleteError) throw deleteError;
+
+        console.log(`Successfully cleared ${data?.length || 0} messages for chat: ${config.chatId}`);
+        socket.emit('chat-cleared', { chatId: config.chatId });
+        socket.emit('cli-output', { text: `\n✅ Historial de chat limpiado (${data?.length || 0} mensajes) en la base de datos.` });
         socket.emit('cli-closed', { code: 0 });
         return;
       } catch (err) {
+        console.error(`Error clearing chat ${config.chatId}:`, err);
         socket.emit('cli-error', { text: `Error clearing chat: ${err}` });
         socket.emit('cli-closed', { code: 1 });
         return;
@@ -58,16 +82,14 @@ const handleSendMessage = async (socket: any, message: string) => {
     }
 
     if (cmd === '/model') {
-      if (!arg) {
-        socket.emit('cli-output', { text: '\n❌ Uso: /model <nombre-modelo>' });
-        socket.emit('cli-closed', { code: 1 });
+      if (arg) {
+        config.model = arg;
+        sessionConfigs.set(socket.id, config);
+        socket.emit('cli-output', { text: `\n✅ Modelo actualizado a: ${arg}` });
+        socket.emit('cli-closed', { code: 0 });
         return;
       }
-      config.model = arg;
-      sessionConfigs.set(socket.id, config);
-      socket.emit('cli-output', { text: `\n✅ Modelo actualizado a: ${arg}` });
-      socket.emit('cli-closed', { code: 0 });
-      return;
+      // Si no hay argumento, dejamos que el flujo continúe hacia el CLI para mostrar la lista de modelos
     }
 
     if (cmd === '/provider') {
@@ -90,18 +112,25 @@ const handleSendMessage = async (socket: any, message: string) => {
   }
 
   // 2. Preparar el contexto (Historial)
-  const { data: history } = await supabase
-    .from('livemessages')
-    .select('role, content')
-    .eq('chat_id', config.chatId)
-    .order('created_at', { ascending: true });
-
   let fullPrompt = message;
-  if (history && history.length > 0) {
-    const historyContext = history
-      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-      .join('\n');
-    fullPrompt = `Contexto previo:\n${historyContext}\n\nUltimo mensaje: ${message}`;
+  const isAgenticShortcut = message.startsWith('/') && (
+    !['/clear', '/model', '/provider', '/config'].some(cmd => message.startsWith(cmd)) ||
+    ['/model', '/provider', '/config'].includes(message)
+  );
+
+  if (!isAgenticShortcut) {
+    const { data: history } = await supabase
+      .from('livemessages')
+      .select('role, content')
+      .eq('chat_id', config.chatId)
+      .order('created_at', { ascending: true });
+
+    if (history && history.length > 0) {
+      const historyContext = history
+        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n');
+      fullPrompt = `Contexto previo:\n${historyContext}\n\nUltimo mensaje: ${message}`;
+    }
   }
 
   console.log(`Processing message: ${message}`);
@@ -158,8 +187,8 @@ io.on('connection', (socket) => {
 
     console.log(`Loaded ${history?.length || 0} messages from history`);
 
-    // Save session config including chatId
-    sessionConfigs.set(socket.id, { ...providerConfig, chatId });
+    // Save session config including chatId and userId
+    sessionConfigs.set(socket.id, { ...providerConfig, chatId, userId });
 
     // Send the first message
     if (message) {
@@ -167,7 +196,27 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('send-message', ({ message }) => {
+  socket.on('send-message', async (payload) => {
+    const { message, chatId, userId, providerConfig } = payload || {};
+
+    console.log(`Received send-message event. SocketID: ${socket.id}, ChatID: ${chatId}`);
+
+    if (!message) {
+      socket.emit('error', { text: 'No message provided.' });
+      return;
+    }
+
+    // Recuperación automática de sesión
+    if (!sessionConfigs.has(socket.id)) {
+      if (!chatId || !userId || !providerConfig) {
+        console.error('Missing session metadata in send-message payload:', payload);
+        socket.emit('error', { text: 'Session expired or missing. Please refresh the page.' });
+        return;
+      }
+      console.log(`Recovering session for socket ${socket.id} using provided metadata.`);
+      sessionConfigs.set(socket.id, { ...providerConfig, chatId, userId });
+    }
+
     handleSendMessage(socket, message);
   });
 

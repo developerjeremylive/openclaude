@@ -112,7 +112,29 @@ export const ChatSidebar: React.FC = () => {
   const chatListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!user) return;
+
     fetchChats();
+
+    // Suscribirse a cambios en tiempo real en los mensajes para actualizar los contadores
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'livemessages',
+        },
+        () => {
+          fetchChats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   useEffect(() => {

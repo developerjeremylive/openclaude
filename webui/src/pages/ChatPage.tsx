@@ -188,6 +188,11 @@ export const ChatPage: React.FC = () => {
       }
     });
 
+    socketRef.current.on('error', ({ text }) => {
+      setIsLoading(false);
+      toast.error(`Session Error: ${text}`);
+    });
+
     socketRef.current.on('cli-closed', async () => {
       setIsLoading(false);
       if (hasSavedResponse.current) return;
@@ -205,6 +210,13 @@ export const ChatPage: React.FC = () => {
         }).catch(err => console.error('Failed to save assistant response:', err));
       }
     });
+
+    socketRef.current.on('chat-cleared', ({ chatId }) => {
+      if (chatId === currentChatId) {
+        setMessages([]);
+      }
+    });
+
   };
 
   const handleSendMessage = async (text: string) => {
@@ -266,7 +278,13 @@ export const ChatPage: React.FC = () => {
       } else {
         socketRef.current?.emit('send-message', {
           chatId: activeChatId,
-          message: text
+          userId: user.id,
+          message: text,
+          providerConfig: {
+            apiKey: import.meta.env.VITE_API_KEY,
+            baseUrl: import.meta.env.VITE_BASE_URL,
+            model: import.meta.env.VITE_MODEL
+          }
         });
       }
     } catch (error) {
