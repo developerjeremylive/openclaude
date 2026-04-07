@@ -7,6 +7,8 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs/promises';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +33,18 @@ const supabase = createClient(
 );
 
 const sessionConfigs = new Map<string, any>();
+
+async function getProviderProfiles() {
+  const configPath = path.join(os.homedir(), '.claude.json');
+  try {
+    const data = await fs.readFile(configPath, 'utf8');
+    const config = JSON.parse(data);
+    return config.providerProfiles || [];
+  } catch (err) {
+    console.error('Error reading .claude.json:', err);
+    return [];
+  }
+}
 
 const handleSendMessage = async (socket: any, message: string) => {
   const config = sessionConfigs.get(socket.id);
@@ -111,14 +125,45 @@ const handleSendMessage = async (socket: any, message: string) => {
     }
 
     if (cmd === '/provider') {
-      if (!arg) {
-        socket.emit('cli-output', { text: '\n❌ Uso: /provider <nombre-proveedor>' });
+      try {
+        const profiles = await getProviderProfiles();
+        if (!arg) {
+          let providerList = '\n🤖 Proveedores disponibles:\n';
+          profiles.forEach((p, i) => {
+            const star = (p.apiKey === config.apiKey && p.model === config.model) ? '⭐ ' : '';
+            providerList += `${i + 1}) ${star}${p.name} - ${p.model}\n`;
+          });
+          providerList += `\nUso: /provider <nombre-proveedor>`;
+          socket.emit('cli-output', { text: providerList });
+          socket.emit('cli-closed', { code: 0 });
+          return;
+        }
+
+        const profile = profiles.find(p => p.name.toLowerCase() === arg.toLowerCase());
+        if (profile) {
+          config.apiKey = profile.apiKey;
+          config.baseUrl = profile.baseUrl;
+          config.model = profile.model;
+          config.providerProfileId = profile.id;
+          sessionConfigs.set(socket.id, config);
+          socket.emit('cli-output', { text: `\n✅ Proveedor actualizado a: ${profile.name} (${profile.model})` });
+          socket.emit('cli-closed', { code: 0 });
+        } else {
+          socket.emit('cli-output', { text: `\n❌ Proveedor "${arg}" no encontrado.\n` });
+          let providerList = 'Proveedores disponibles:\n';
+          profiles.forEach((p, i) => {
+            providerList += `${i + 1}) ${p.name}\n`;
+          });
+          socket.emit('cli-output', { text: providerList });
+          socket.emit('cli-closed', { code: 1 });
+        }
+        return;
+      } catch (err) {
+        console.error('Error handling /provider:', err);
+        socket.emit('cli-error', { text: 'Error al leer la configuración de proveedores.' });
         socket.emit('cli-closed', { code: 1 });
         return;
       }
-      socket.emit('cli-output', { text: `\n✅ Proveedor actualizado a: ${arg} (Sincronizado con configuración de sesión)` });
-      socket.emit('cli-closed', { code: 0 });
-      return;
     }
 
     if (cmd === '/resume') {
