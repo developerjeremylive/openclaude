@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { spawn } from 'child_process';
+import * as pty from 'node-pty';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
@@ -32,7 +32,14 @@ const supabase = createClient(
   process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_KEY || ''
 );
 
+function stripAnsi(str: string) {
+  const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+  return str.replace(ansiRegex, '');
+}
+
 const sessionConfigs = new Map<string, any>();
+const activeProcesses = new Map<string, any>();
+const stdoutBuffers = new Map<string, string>();
 
 async function getProviderProfiles() {
   const configPath = path.join(os.homedir(), '.claude.json');
@@ -248,7 +255,10 @@ const handleSendMessage = async (socket: any, message: string) => {
   console.log(`Processing message: ${message}`);
 
   // 3. Ejecutar el CLI con el contexto y el directorio de trabajo correcto
-  const child = spawn('node', [cliPath, '-p', fullPrompt, '-c'], {
+  const child = pty.spawn(process.execPath, [cliPath, fullPrompt, '-c'], {
+    name: 'xterm-color',
+    cols: 80,
+    rows: 30,
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -258,30 +268,61 @@ const handleSendMessage = async (socket: any, message: string) => {
       OPENAI_MODEL: config.model,
     }
   });
+  activeProcesses.set(socket.id, child);
 
-  child.stdout.on('data', (data) => {
-    const text = data.toString();
-    console.log(`CLI STDOUT: ${text}`);
-    socket.emit('cli-output', { text });
+  child.onData((data) => {
+    const text = data;
+    console.log(`CLI DATA: ${text}`);
+
+    // Accumulate text in buffer to handle split chunks
+    const currentBuffer = (stdoutBuffers.get(socket.id) || '') + text;
+    stdoutBuffers.set(socket.id, currentBuffer);
+
+    // Detect tool permission requests
+    // TTY Format: "Tool use WebSearch("args") ... Do you want to proceed?"
+    const cleanedBuffer = stripAnsi(currentBuffer);
+
+    // Debug: Log if we see "Tool use" but the regex might be failing
+    if (cleanedBuffer.includes('Tool use') && !cleanedBuffer.match(/Tool\s*use\s*([^\s(]+)\(([^)]*)\).*?Do\s*you\s*want\s*to\s*proceed\?/is)) {
+      console.log(`[Debug] Found "Tool use" but regex failed. Buffer content: "${cleanedBuffer}"`);
+    }
+
+    const toolMatch = cleanedBuffer.match(/Tool\s*use\s*([^\s(]+)\(([^)]*)\).*?Do\s*you\s*want\s*to\s*proceed\?([\s\S]*)/is);
+    if (toolMatch) {
+      const toolName = toolMatch[1];
+      const toolDesc = toolMatch[2];
+      const optionsText = toolMatch[3];
+
+      // Parse options (e.g., "1. Yes 2. No")
+      const options = [];
+      const optionRegex = /(\d+)\.\s+([^0-9\n]+)(?=\s+\d+\.|$)/g;
+      let match;
+      while ((match = optionRegex.exec(optionsText)) !== null) {
+        options.push({
+          value: match[1],
+          label: match[2].trim()
+        });
+      }
+
+      console.log(`[Debug] Tool request detected (TTY): ${toolName} - ${toolDesc}`);
+      socket.emit('tool-request', { toolName, toolDesc, options });
+      // Clear buffer after detection to avoid duplicate requests
+      stdoutBuffers.set(socket.id, '');
+    } else if (currentBuffer.length > 1000) {
+      // Prevent buffer from growing indefinitely
+      stdoutBuffers.set(socket.id, currentBuffer.slice(-1000));
+    }
+
+    socket.emit('cli-output', { text: stripAnsi(text) });
   });
 
-  child.stderr.on('data', (data) => {
-    const text = data.toString();
-    const lowerText = text.toLowerCase();
-    if (lowerText.includes('interrupted by user') || lowerText.includes('no stdin data received')) return;
-    console.error(`CLI STDERR: ${text}`);
-    socket.emit('cli-error', { text });
-  });
-
-  child.on('error', (err) => {
-    console.error('CLI process error:', err);
-    socket.emit('cli-error', { text: `CLI Error: ${err.message}` });
-  });
-
-  child.on('close', (code) => {
+  child.onExit((code) => {
+    activeProcesses.delete(socket.id);
+    stdoutBuffers.delete(socket.id);
     console.log(`CLI process exited with code ${code}`);
     socket.emit('cli-closed', { code });
   });
+
 };
 
 
@@ -305,6 +346,18 @@ io.on('connection', (socket) => {
     // Send the first message
     if (message) {
       handleSendMessage(socket, message);
+    }
+  });
+
+  socket.on('tool-response', ({ response }) => {
+    console.log(`[Tool Response] Received: ${response}`);
+    const child = activeProcesses.get(socket.id);
+    if (child && child.stdin) {
+      // Write the option value (e.g., '1', '2', '3') followed by a newline
+      child.stdin.write(`${response}\\n`);
+      console.log(`[Tool Response] Wrote ${response} to stdin`);
+    } else {
+      console.error('[Tool Response] No active child process found for this socket');
     }
   });
 
