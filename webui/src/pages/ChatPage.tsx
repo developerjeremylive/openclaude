@@ -6,7 +6,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
-import { ToolConfirmationPopup } from '../components/ToolConfirmationPopup';
 import { supabase } from '../utils/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { openClaudeMessagesInsert } from '../utils/supabaseClient';
@@ -101,7 +100,6 @@ export const ChatPage: React.FC = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [toolRequest, setToolRequest] = useState<{ toolName: string; toolDesc: string; options?: { value: string; label: string }[] } | null>(null);
   const [currentChatId, setCurrentChatId] = useState(chatId);
   const currentChatIdRef = useRef(chatId);
   const socketRef = useRef<Socket | null>(null);
@@ -164,12 +162,6 @@ export const ChatPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleToolResponse = (value: string) => {
-    socketRef.current?.emit('tool-response', { response: value });
-    setToolRequest(null);
-  };
-
-
   const initSocket = () => {
     socketRef.current = io('http://localhost:4000');
 
@@ -204,10 +196,6 @@ export const ChatPage: React.FC = () => {
     socketRef.current.on('error', ({ text }) => {
       setIsLoading(false);
       toast.error(`Session Error: ${text}`);
-    });
-
-    socketRef.current.on('tool-request', ({ toolName, toolDesc }) => {
-      setToolRequest({ toolName, toolDesc });
     });
 
     socketRef.current.on('cli-closed', async () => {
@@ -359,14 +347,6 @@ export const ChatPage: React.FC = () => {
         </MessagesContainer>
         <ChatInput onSend={handleSendMessage} disabled={isLoading} />
       </ChatMain>
-      {toolRequest && (
-        <ToolConfirmationPopup
-          toolName={toolRequest.toolName}
-          arguments={toolRequest.toolDesc}
-          options={toolRequest.options}
-          onResponse={handleToolResponse}
-        />
-      )}
     </PageContainer>
   );
 };
