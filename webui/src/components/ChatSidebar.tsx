@@ -116,6 +116,10 @@ export const ChatSidebar: React.FC = () => {
 
     fetchChats();
 
+    // Escuchar evento manual de actualización desde otras páginas
+    const handleRefresh = () => fetchChats();
+    window.addEventListener('refresh-chat-list', handleRefresh);
+
     // Suscribirse a cambios en tiempo real en los mensajes para actualizar los contadores
     const channel = supabase
       .channel('schema-db-changes')
@@ -133,6 +137,7 @@ export const ChatSidebar: React.FC = () => {
       .subscribe();
 
     return () => {
+      window.removeEventListener('refresh-chat-list', handleRefresh);
       supabase.removeChannel(channel);
     };
   }, [user]);

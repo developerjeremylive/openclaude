@@ -209,6 +209,9 @@ export const ChatPage: React.FC = () => {
           role: 'assistant',
           content: responseToSave,
           metadata: {}
+        }).then(() => {
+          // Notificar a la barra lateral para que actualice el contador
+          window.dispatchEvent(new CustomEvent('refresh-chat-list'));
         }).catch(err => console.error('Failed to save assistant response:', err));
         currentAssistantResponse.current = '';
       }
