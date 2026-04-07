@@ -231,10 +231,17 @@ const handleSendMessage = async (socket: any, message: string) => {
       .order('created_at', { ascending: true });
 
     if (history && history.length > 0) {
-      const historyContext = history
-        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-        .join('\n');
-      fullPrompt = `Contexto previo:\n${historyContext}\n\nUltimo mensaje: ${message}`;
+      // Excluimos el último mensaje ya que es el prompt actual que se está enviando
+      const filteredHistory = history.slice(0, -1);
+
+      if (filteredHistory.length > 0) {
+        const historyContext = filteredHistory
+          .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+          .join('\n');
+        fullPrompt = `${historyContext}\n\n${message}`;
+      } else {
+        fullPrompt = message;
+      }
     }
   }
 
