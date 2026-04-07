@@ -4,14 +4,7 @@ import { Send, Terminal } from 'lucide-react';
 
 const SHORTCUTS = [
   { cmd: '/clear', desc: 'Limpia el historial de la conversación' },
-  { cmd: '/compact', desc: 'Reduce el tamaño del contexto' },
   { cmd: '/resume', desc: 'Recupera una sesión anterior' },
-  { cmd: '/commit', desc: 'Crea un commit inteligente' },
-  { cmd: '/diff', desc: 'Muestra las diferencias actuales' },
-  { cmd: '/review', desc: 'Inicia revisión de código' },
-  { cmd: '/config', desc: 'Ajusta parámetros del sistema' },
-  { cmd: '/permissions', desc: 'Gestiona permisos de acceso' },
-  { cmd: '/doctor', desc: 'Diagnostica el estado del sistema' },
   { cmd: '/model', desc: 'Cambia el modelo de IA activo' },
   { cmd: '/provider', desc: 'Cambia el proveedor de IA' },
 ];
