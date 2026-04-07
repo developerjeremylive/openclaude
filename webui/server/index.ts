@@ -89,7 +89,25 @@ const handleSendMessage = async (socket: any, message: string) => {
         socket.emit('cli-closed', { code: 0 });
         return;
       }
-      // Si no hay argumento, dejamos que el flujo continúe hacia el CLI para mostrar la lista de modelos
+
+      // Simulación de la lista de modelos del CLI (ya que -p no soporta local-jsx)
+      const models = [
+        { id: 'gemma-4-31b-it', name: 'Gemma 4 31B (Default)' },
+        { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet' },
+        { id: 'claude-3-opus', name: 'Claude 3 Opus' },
+        { id: 'claude-3-haiku', name: 'Claude 3 Haiku' },
+      ];
+
+      let modelList = '\n🤖 Modelos disponibles:\n';
+      models.forEach((m, i) => {
+        const isCurrent = m.id === config.model ? '⭐' : `${i + 1})`;
+        modelList += `${isCurrent} ${m.id} - ${m.name}\n`;
+      });
+      modelList += `\nUso: /model <nombre-modelo>`;
+
+      socket.emit('cli-output', { text: modelList });
+      socket.emit('cli-closed', { code: 0 });
+      return;
     }
 
     if (cmd === '/provider') {
