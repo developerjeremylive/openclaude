@@ -106,6 +106,7 @@ export const ChatPage: React.FC = () => {
   const sessionInitialized = useRef(false);
   const messagesRef = useRef<Message[]>([]);
   const hasSavedResponse = useRef(false);
+  const currentAssistantResponse = useRef('');
 
   useEffect(() => {
     if (!user) {
@@ -163,6 +164,7 @@ export const ChatPage: React.FC = () => {
 
     socketRef.current.on('cli-output', async ({ text }) => {
       setIsLoading(false);
+      currentAssistantResponse.current += text;
       // The CLI output can be streaming, so we might need to accumulate
       // For now, we treat each chunk as a part of the last assistant message
       setMessages(prev => {
@@ -197,29 +199,34 @@ export const ChatPage: React.FC = () => {
       setIsLoading(false);
       if (hasSavedResponse.current) return;
 
-      const lastMsg = messagesRef.current[messagesRef.current.length - 1];
-      if (lastMsg && lastMsg.role === 'assistant') {
+      const responseToSave = currentAssistantResponse.current;
+      if (responseToSave) {
         hasSavedResponse.current = true;
-        // Async save to Supabase
+        // Async save to Supabase using the accumulated ref
         openClaudeMessagesInsert({
           chat_id: currentChatId!,
           user_id: user!.id,
           role: 'assistant',
-          content: lastMsg.content,
+          content: responseToSave,
           metadata: {}
         }).catch(err => console.error('Failed to save assistant response:', err));
+        currentAssistantResponse.current = '';
       }
     });
 
     socketRef.current.on('chat-cleared', ({ chatId }) => {
       if (chatId === currentChatId) {
         setMessages([]);
+        currentAssistantResponse.current = '';
+        hasSavedResponse.current = false;
       }
     });
 
     socketRef.current.on('chat-switched', ({ chatId }) => {
       setCurrentChatId(chatId);
       navigate(`/chat/${chatId}`);
+      currentAssistantResponse.current = '';
+      hasSavedResponse.current = false;
     });
 
   };
@@ -233,6 +240,10 @@ export const ChatPage: React.FC = () => {
 
     try {
       let activeChatId = currentChatId;
+      currentAssistantResponse.current = '';
+      hasSavedResponse.current = false;
+
+      // Si es un chat nuevo, crearlo primero en Supabase
 
       // Si es un chat nuevo, crearlo primero en Supabase
       if (!activeChatId || activeChatId === 'new') {
