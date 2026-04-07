@@ -217,6 +217,11 @@ export const ChatPage: React.FC = () => {
       }
     });
 
+    socketRef.current.on('chat-switched', ({ chatId }) => {
+      setCurrentChatId(chatId);
+      navigate(`/chat/${chatId}`);
+    });
+
   };
 
   const handleSendMessage = async (text: string) => {

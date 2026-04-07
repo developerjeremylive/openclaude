@@ -121,6 +121,48 @@ const handleSendMessage = async (socket: any, message: string) => {
       return;
     }
 
+    if (cmd === '/resume') {
+      if (arg) {
+        // Cambiar al chat especificado
+        config.chatId = arg;
+        sessionConfigs.set(socket.id, config);
+        socket.emit('chat-switched', { chatId: arg });
+        socket.emit('cli-output', { text: `\n✅ Sesión restaurada. Cambiando al chat: ${arg}` });
+        socket.emit('cli-closed', { code: 0 });
+        return;
+      }
+
+      // Mostrar lista de chats recientes
+      try {
+        const { data: recentChats, error } = await supabase
+          .from('livechats')
+          .select('id, title')
+          .eq('user_id', config.userId)
+          .order('updated_at', { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+
+        if (!recentChats || recentChats.length === 0) {
+          socket.emit('cli-output', { text: '\n❌ No se encontraron chats previos.' });
+        } else {
+          let resumeList = '\n🕒 Chats recientes:\n';
+          recentChats.forEach((chat, i) => {
+            resumeList += `${i + 1}) ${chat.title} [${chat.id}]\n`;
+          });
+          resumeList += `\nUso: /resume <id_del_chat>`;
+          socket.emit('cli-output', { text: resumeList });
+        }
+        socket.emit('cli-closed', { code: 0 });
+        return;
+      } catch (err) {
+        console.error(`Error fetching recent chats:`, err);
+        socket.emit('cli-error', { text: `Error al recuperar chats: ${err}` });
+        socket.emit('cli-closed', { code: 1 });
+        return;
+      }
+    }
+
     if (cmd === '/config') {
       const configSummary = `\n⚙️ Configuración Actual:\n- Modelo: ${config.model}\n- BaseURL: ${config.baseUrl}\n- API Key: ${config.apiKey ? '********' : 'No configurada'}`;
       socket.emit('cli-output', { text: configSummary });
