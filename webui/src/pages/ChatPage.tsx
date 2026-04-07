@@ -101,6 +101,7 @@ export const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentChatId, setCurrentChatId] = useState(chatId);
+  const currentChatIdRef = useRef(chatId);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionInitialized = useRef(false);
@@ -116,6 +117,7 @@ export const ChatPage: React.FC = () => {
 
     if (chatId && chatId !== 'new') {
       setCurrentChatId(chatId);
+      currentChatIdRef.current = chatId;
       fetchMessages(chatId);
     } else {
       // Redirect to /chat to trigger a new chat creation or default behavior
@@ -123,6 +125,7 @@ export const ChatPage: React.FC = () => {
       // If the user lands here without an ID, we can just stay in an empty state
       // or redirect to a fresh chat creation.
       setCurrentChatId(null);
+      currentChatIdRef.current = null;
     }
   }, [user, chatId, navigate]);
 
@@ -204,7 +207,7 @@ export const ChatPage: React.FC = () => {
         hasSavedResponse.current = true;
         // Async save to Supabase using the accumulated ref
         openClaudeMessagesInsert({
-          chat_id: currentChatId!,
+          chat_id: currentChatIdRef.current!,
           user_id: user!.id,
           role: 'assistant',
           content: responseToSave,
@@ -218,7 +221,7 @@ export const ChatPage: React.FC = () => {
     });
 
     socketRef.current.on('chat-cleared', ({ chatId }) => {
-      if (chatId === currentChatId) {
+      if (chatId === currentChatIdRef.current) {
         setMessages([]);
         currentAssistantResponse.current = '';
         hasSavedResponse.current = false;
@@ -262,6 +265,7 @@ export const ChatPage: React.FC = () => {
         if (chatError) throw chatError;
         activeChatId = newChat.id;
         setCurrentChatId(activeChatId);
+        currentChatIdRef.current = activeChatId;
       }
 
       // Guardar mensaje del usuario
